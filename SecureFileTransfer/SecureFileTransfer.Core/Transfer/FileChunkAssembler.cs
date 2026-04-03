@@ -1,10 +1,19 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using SecureFileTransfer.Core.Models;
 
 namespace SecureFileTransfer.Core.Transfer;
 
 public sealed class FileChunkAssembler : IFileChunkAssembler
 {
+    // SessionId is Guid.NewGuid().ToString("N") — exactly 32 lowercase hex characters.
+    // Enforcing this prevents path traversal via crafted SessionId values.
+    private static readonly Regex SafeSessionIdRegex =
+        new(@"^[a-f0-9]{32}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    // Upper bound on concurrent in-flight sessions to prevent disk/memory exhaustion.
+    private const int MaxConcurrentSessions = 50;
+
     private sealed class SessionState
     {
         public required string SessionId { get; init; }
@@ -17,30 +26,54 @@ public sealed class FileChunkAssembler : IFileChunkAssembler
 
     private readonly ConcurrentDictionary<string, SessionState> _sessions = new();
 
-    public async Task<ChunkProcessResult> AddChunkAsync(UploadChunkRequest request, string receivedRootPath, CancellationToken cancellationToken)
+    public async Task<ChunkProcessResult> AddChunkAsync(UploadChunkRequest request, byte[] chunkData, string receivedRootPath, CancellationToken cancellationToken)
     {
         if (request.TotalChunks <= 0 || request.ChunkIndex < 0 || request.ChunkIndex >= request.TotalChunks)
         {
-            throw new InvalidOperationException("Invalid chunk metadata.");
+            throw new InvalidOperationException("Некорректные метаданные чанка.");
+        }
+
+        // Path-traversal guard: SessionId must be a canonical 32-char hex GUID string.
+        if (string.IsNullOrEmpty(request.SessionId) || !SafeSessionIdRegex.IsMatch(request.SessionId))
+        {
+            throw new InvalidOperationException("Недопустимый идентификатор сессии.");
         }
 
         var safeFileName = Path.GetFileName(request.FileName);
+        if (string.IsNullOrEmpty(safeFileName))
+        {
+            throw new InvalidOperationException("Недопустимое имя файла в метаданных чанка.");
+        }
+
+        // Concurrent session limit to prevent disk/memory flooding.
         var sessionPath = Path.Combine(receivedRootPath, "_sessions", request.SessionId);
 
-        var session = _sessions.GetOrAdd(request.SessionId, _ => new SessionState
+        // Track whether this GetOrAdd creates a new session so we can enforce the limit atomically.
+        var isNewSession = false;
+        var session = _sessions.GetOrAdd(request.SessionId, _ =>
         {
-            SessionId = request.SessionId,
-            FileName = safeFileName,
-            SessionPath = sessionPath,
-            ReceivedFlags = new bool[request.TotalChunks]
+            isNewSession = true;
+            return new SessionState
+            {
+                SessionId = request.SessionId,
+                FileName = safeFileName,
+                SessionPath = sessionPath,
+                ReceivedFlags = new bool[request.TotalChunks]
+            };
         });
+
+        // If this thread just added a new session that pushed us over the limit, roll it back.
+        if (isNewSession && _sessions.Count > MaxConcurrentSessions)
+        {
+            _sessions.TryRemove(request.SessionId, out _);
+            throw new InvalidOperationException($"Превышен лимит параллельных сессий ({MaxConcurrentSessions}).");
+        }
 
         Directory.CreateDirectory(session.SessionPath);
         Directory.CreateDirectory(receivedRootPath);
 
         var chunkPath = Path.Combine(session.SessionPath, $"chunk_{request.ChunkIndex:D8}.bin");
-        var chunkBytes = Convert.FromBase64String(request.DataBase64);
-        await File.WriteAllBytesAsync(chunkPath, chunkBytes, cancellationToken);
+        await File.WriteAllBytesAsync(chunkPath, chunkData, cancellationToken);
 
         var shouldAssemble = false;
 

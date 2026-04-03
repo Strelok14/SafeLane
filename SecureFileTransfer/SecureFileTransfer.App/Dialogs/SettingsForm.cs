@@ -15,7 +15,7 @@ public sealed class SettingsForm : Form
 
     public SettingsForm(AppSettings current)
     {
-        Text = "Settings";
+        Text = "Настройки";
         Width = 600;
         Height = 340;
         StartPosition = FormStartPosition.CenterParent;
@@ -42,30 +42,30 @@ public sealed class SettingsForm : Form
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
 
-        table.Controls.Add(new Label { Text = "Node name", AutoSize = true }, 0, 0);
+        table.Controls.Add(new Label { Text = "Имя узла", AutoSize = true }, 0, 0);
         table.Controls.Add(_txtNodeName, 1, 0);
 
-        table.Controls.Add(new Label { Text = "Listen port", AutoSize = true }, 0, 1);
+        table.Controls.Add(new Label { Text = "Порт прослушивания", AutoSize = true }, 0, 1);
         table.Controls.Add(_numPort, 1, 1);
 
-        table.Controls.Add(new Label { Text = "Shared secret", AutoSize = true }, 0, 2);
+        table.Controls.Add(new Label { Text = "Общий секрет", AutoSize = true }, 0, 2);
         table.Controls.Add(_txtSharedSecret, 1, 2);
 
-        table.Controls.Add(new Label { Text = "Chunk size (KB)", AutoSize = true }, 0, 3);
+        table.Controls.Add(new Label { Text = "Размер чанка (КБ)", AutoSize = true }, 0, 3);
         table.Controls.Add(_numChunkKb, 1, 3);
 
-        table.Controls.Add(new Label { Text = "Rate limit (req/s)", AutoSize = true }, 0, 4);
+        table.Controls.Add(new Label { Text = "Лимит запросов (зап/с)", AutoSize = true }, 0, 4);
         table.Controls.Add(_numRate, 1, 4);
 
-        table.Controls.Add(new Label { Text = "Received folder", AutoSize = true }, 0, 5);
+        table.Controls.Add(new Label { Text = "Папка получения", AutoSize = true }, 0, 5);
         table.Controls.Add(_txtReceivedDir, 1, 5);
-        var btnBrowse = new Button { Text = "Browse...", Width = 90 };
+        var btnBrowse = new Button { Text = "Обзор...", Width = 90 };
         btnBrowse.Click += (_, _) => BrowseFolder();
         table.Controls.Add(btnBrowse, 2, 5);
 
         var panelButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-        var btnOk = new Button { Text = "OK", Width = 90 };
-        var btnCancel = new Button { Text = "Cancel", Width = 90 };
+        var btnOk = new Button { Text = "ОК", Width = 90 };
+        var btnCancel = new Button { Text = "Отмена", Width = 90 };
         btnOk.Click += (_, _) => SaveAndClose(current);
         btnCancel.Click += (_, _) => DialogResult = DialogResult.Cancel;
         panelButtons.Controls.Add(btnOk);
@@ -88,7 +88,7 @@ public sealed class SettingsForm : Form
     {
         if (string.IsNullOrWhiteSpace(_txtNodeName.Text) || string.IsNullOrWhiteSpace(_txtSharedSecret.Text))
         {
-            MessageBox.Show("Node name and shared secret are required.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Имя узла и общий секрет обязательны для заполнения.", "Проверка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 

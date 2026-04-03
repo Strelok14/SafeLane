@@ -91,7 +91,7 @@ partial class Form1
         this.btnAddNode.Name = "btnAddNode";
         this.btnAddNode.Size = new System.Drawing.Size(122, 30);
         this.btnAddNode.TabIndex = 0;
-        this.btnAddNode.Text = "�������� ����";
+        this.btnAddNode.Text = "Добавить узел";
         this.btnAddNode.UseVisualStyleBackColor = true;
         this.btnAddNode.Click += new System.EventHandler(this.btnAddNode_Click);
         // 
@@ -101,7 +101,7 @@ partial class Form1
         this.btnRemoveNode.Name = "btnRemoveNode";
         this.btnRemoveNode.Size = new System.Drawing.Size(122, 30);
         this.btnRemoveNode.TabIndex = 1;
-        this.btnRemoveNode.Text = "������� ����";
+        this.btnRemoveNode.Text = "Удалить узел";
         this.btnRemoveNode.UseVisualStyleBackColor = true;
         this.btnRemoveNode.Click += new System.EventHandler(this.btnRemoveNode_Click);
         // 
@@ -111,7 +111,7 @@ partial class Form1
         this.btnSettings.Name = "btnSettings";
         this.btnSettings.Size = new System.Drawing.Size(122, 30);
         this.btnSettings.TabIndex = 2;
-        this.btnSettings.Text = "���������";
+        this.btnSettings.Text = "Настройки";
         this.btnSettings.UseVisualStyleBackColor = true;
         this.btnSettings.Click += new System.EventHandler(this.btnSettings_Click);
         // 
@@ -155,7 +155,7 @@ partial class Form1
         this.txtSelectedFile.Location = new System.Drawing.Point(3, 10);
         this.txtSelectedFile.Margin = new System.Windows.Forms.Padding(3, 10, 3, 3);
         this.txtSelectedFile.Name = "txtSelectedFile";
-        this.txtSelectedFile.PlaceholderText = "�������� ���� ��� ��������";
+        this.txtSelectedFile.PlaceholderText = "Выберите файл для отправки";
         this.txtSelectedFile.ReadOnly = true;
         this.txtSelectedFile.Size = new System.Drawing.Size(808, 23);
         this.txtSelectedFile.TabIndex = 0;

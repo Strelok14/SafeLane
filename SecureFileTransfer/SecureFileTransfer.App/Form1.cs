@@ -15,6 +15,7 @@ public partial class Form1 : Form
 
     private SettingsStore? _settingsStore;
     private TrustedNodeStore? _trustedNodeStore;
+    private SecretStore? _secretStore;
     private AppSettings? _settings;
     private List<TrustedNodeConfig> _trustedNodes = new();
     private LocalServerHost? _localServer;
@@ -40,8 +41,21 @@ public partial class Form1 : Form
 
             _settingsStore = new SettingsStore(_appDataPath);
             _trustedNodeStore = new TrustedNodeStore(_appDataPath);
+            _secretStore = new SecretStore(_appDataPath);
 
             _settings = _settingsStore.Load();
+
+            // Migrate plain-text SharedSecret to DPAPI on first launch (or if already protected, load it).
+            var protectedSecret = _secretStore.TryLoad();
+            if (protectedSecret is null)
+            {
+                // First run: encrypt whatever is in settings.json and overwrite with a placeholder.
+                _secretStore.Save(_settings.SharedSecret);
+                _settings.SharedSecret = string.Empty; // no longer stored in JSON
+                _settingsStore.Save(_settings);
+                protectedSecret = _secretStore.TryLoad()!;
+            }
+            _settings.SharedSecret = protectedSecret;
             _trustedNodes = _trustedNodeStore.Load();
             PopulateTrustedNodesToGrid();
 
@@ -275,7 +289,7 @@ public partial class Form1 : Form
 
     private void btnSettings_Click(object sender, EventArgs e)
     {
-        if (_settingsStore is null || _settings is null)
+        if (_settingsStore is null || _secretStore is null || _settings is null)
         {
             return;
         }
@@ -286,8 +300,22 @@ public partial class Form1 : Form
             return;
         }
 
-        _settings = dialog.Result;
-        _settingsStore.Save(_settings);
+        var newSettings = dialog.Result;
+
+        // Persist secret via DPAPI; keep it out of settings.json.
+        if (!string.IsNullOrWhiteSpace(newSettings.SharedSecret))
+        {
+            _secretStore.Save(newSettings.SharedSecret);
+        }
+
+        var plainSecret = newSettings.SharedSecret;
+        newSettings.SharedSecret = string.Empty;
+        _settingsStore.Save(newSettings);
+
+        // Restore in-memory so the running instance keeps using it.
+        newSettings.SharedSecret = plainSecret;
+        _settings = newSettings;
+
         Log("Настройки сохранены. Перезагрузите приложение для применения изменений порта прослушивания.");
     }
 
@@ -307,15 +335,21 @@ public partial class Form1 : Form
         }
     }
 
-    private async void Form1_FormClosing(object sender, FormClosingEventArgs e)
+    private void Form1_FormClosing(object sender, FormClosingEventArgs e)
     {
         _heartbeatTimer.Stop();
         _cts.Cancel();
 
         _discovery?.Dispose();
+
+        // Run async shutdown synchronously on a threadpool thread to avoid deadlocking the UI
+        // message loop while still waiting for Kestrel to fully stop.
         if (_localServer is not null)
         {
-            await _localServer.DisposeAsync();
+            Task.Run(async () =>
+            {
+                await _localServer.DisposeAsync();
+            }).Wait(TimeSpan.FromSeconds(5));
         }
 
         _cts.Dispose();

@@ -8,6 +8,7 @@ using SecureFileTransfer.Core.Models;
 using SecureFileTransfer.Core.Protection;
 using SecureFileTransfer.Core.Security;
 using SecureFileTransfer.Core.Transfer;
+using System.Security.Cryptography;
 
 namespace SecureFileTransfer.App.Networking;
 
@@ -21,7 +22,11 @@ public sealed class LocalServerHost : IAsyncDisposable
     private readonly IReplayProtectionService _replay = new ReplayProtectionService();
     private readonly IKeyDerivationService _keyDerivation = new KeyDerivationService();
     private readonly IHmacSignatureService _hmac = new HmacSignatureService();
+    private readonly IChunkEncryptionService _encryption = new ChunkEncryptionService();
     private readonly IFileChunkAssembler _assembler = new FileChunkAssembler();
+    // PBKDF2 is intentionally expensive (150k iterations). Cache derived keys to prevent
+    // per-request CPU exhaustion when processing many chunks from the same sender.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> _keyCache = new();
     private WebApplication? _app;
 
     public LocalServerHost(
@@ -45,7 +50,15 @@ public sealed class LocalServerHost : IAsyncDisposable
             ContentRootPath = AppContext.BaseDirectory
         });
 
-        builder.WebHost.UseKestrel(options => { options.ListenAnyIP(_settings.ListenPort); });
+        builder.WebHost.UseKestrel(options =>
+        {
+            options.ListenAnyIP(_settings.ListenPort);
+            // Limit request body to 3 MB (2 MB encrypted chunk + JSON overhead).
+            // Prevents memory exhaustion before any middleware runs.
+            options.Limits.MaxRequestBodySize = 3 * 1024 * 1024;
+            options.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(30);
+            options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
+        });
         builder.Services.ConfigureHttpJsonOptions(options => { options.SerializerOptions.PropertyNameCaseInsensitive = true; });
         builder.Services.AddSingleton(_settings);
         builder.Services.AddSingleton<IRateLimiter>(_rateLimiter);
@@ -69,7 +82,7 @@ public sealed class LocalServerHost : IAsyncDisposable
             }
 
             var secret = string.IsNullOrWhiteSpace(node.SharedSecretOverride) ? _settings.SharedSecret : node.SharedSecretOverride;
-            var key = _keyDerivation.DeriveKeyBytes(secret!);
+            var key = GetOrDeriveKey(secret!);
             var canonical = MessageCanonicalizer.ForHandshake(request);
 
             if (!_hmac.VerifyBase64(canonical, key, request.SignatureBase64))
@@ -83,6 +96,22 @@ public sealed class LocalServerHost : IAsyncDisposable
 
         _app.MapPost("/api/upload", async (HttpContext context, UploadChunkRequest request, CancellationToken ct) =>
         {
+            // DoS guard: reject obviously oversized or malformed metadata before doing any crypto.
+            const int maxChunks = 100_000;           // ~6.4 GB at 64 KB/chunk
+            const int maxChunkDataBytes = 2 * 1024 * 1024; // 2 MB encoded ceiling
+            // SessionId must be exactly 32 lowercase hex chars (Guid "N" format) to prevent path traversal.
+            const string sessionIdPattern = @"^[a-f0-9]{32}$";
+            if (request.TotalChunks <= 0 || request.TotalChunks > maxChunks ||
+                request.ChunkIndex < 0 || request.ChunkIndex >= request.TotalChunks ||
+                string.IsNullOrWhiteSpace(request.SessionId) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(request.SessionId, sessionIdPattern) ||
+                string.IsNullOrWhiteSpace(request.FileName) ||
+                request.DataBase64.Length > maxChunkDataBytes)
+            {
+                _log($"Upload rejected: invalid metadata from {request.SenderId}");
+                return Results.BadRequest("Invalid request metadata.");
+            }
+
             var node = GetTrustedNode(request.SenderId);
             if (node is null)
             {
@@ -97,7 +126,7 @@ public sealed class LocalServerHost : IAsyncDisposable
             }
 
             var secret = string.IsNullOrWhiteSpace(node.SharedSecretOverride) ? _settings.SharedSecret : node.SharedSecretOverride;
-            var key = _keyDerivation.DeriveKeyBytes(secret!);
+            var key = GetOrDeriveKey(secret!);
             var canonical = MessageCanonicalizer.ForUpload(request);
             if (!_hmac.VerifyBase64(canonical, key, request.SignatureBase64))
             {
@@ -105,7 +134,19 @@ public sealed class LocalServerHost : IAsyncDisposable
                 return Results.BadRequest("Invalid signature.");
             }
 
-            var result = await _assembler.AddChunkAsync(request, _settings.ReceivedDirectory, ct);
+            // AES-256-GCM decrypt — authenticates ciphertext integrity a second time (defence-in-depth).
+            byte[] chunkData;
+            try
+            {
+                chunkData = _encryption.Decrypt(request.DataBase64, key);
+            }
+            catch (CryptographicException)
+            {
+                _log($"Chunk decryption failed for chunk {request.ChunkIndex} from {request.SenderId}");
+                return Results.BadRequest("Decryption failed.");
+            }
+
+            var result = await _assembler.AddChunkAsync(request, chunkData, _settings.ReceivedDirectory, ct);
             _receiveProgress(request.ChunkIndex + 1, request.TotalChunks);
 
             if (result.Completed)
@@ -116,8 +157,8 @@ public sealed class LocalServerHost : IAsyncDisposable
             return Results.Ok(new
             {
                 ok = true,
-                completed = result.Completed,
-                path = result.SavedFilePath
+                completed = result.Completed
+                // File path intentionally omitted — do not leak filesystem layout to callers.
             });
         });
 
@@ -126,6 +167,13 @@ public sealed class LocalServerHost : IAsyncDisposable
         Directory.CreateDirectory(_settings.ReceivedDirectory);
         await _app.StartAsync(cancellationToken);
         _log($"Embedded server started on http://0.0.0.0:{_settings.ListenPort}");
+    }
+
+    private byte[] GetOrDeriveKey(string secret)
+    {
+        // GetOrAdd is safe here: in the worst case two threads derive the same key simultaneously,
+        // one result is discarded — this is acceptable vs. the cost of locking.
+        return _keyCache.GetOrAdd(secret, s => _keyDerivation.DeriveKeyBytes(s));
     }
 
     private TrustedNodeConfig? GetTrustedNode(string senderId)

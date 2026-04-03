@@ -4,16 +4,16 @@ namespace SecureFileTransfer.App.Dialogs;
 
 public sealed class AddNodeForm : Form
 {
-    private readonly TextBox _txtNodeId = new() { PlaceholderText = "node-id" };
-    private readonly TextBox _txtName = new() { PlaceholderText = "Display name" };
+    private readonly TextBox _txtNodeId = new() { PlaceholderText = "идентификатор-узла" };
+    private readonly TextBox _txtName = new() { PlaceholderText = "Отображаемое имя" };
     private readonly TextBox _txtBaseUrl = new() { PlaceholderText = "http://192.168.0.20:5077" };
-    private readonly TextBox _txtSecret = new() { PlaceholderText = "Shared secret (optional override)" };
+    private readonly TextBox _txtSecret = new() { PlaceholderText = "Свой секрет (необязательно)" };
 
     public TrustedNodeConfig? Result { get; private set; }
 
     public AddNodeForm()
     {
-        Text = "Add Trusted Node";
+        Text = "Добавить доверенный узел";
         Width = 520;
         Height = 250;
         StartPosition = FormStartPosition.CenterParent;
@@ -32,18 +32,18 @@ public sealed class AddNodeForm : Form
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-        table.Controls.Add(new Label { Text = "Node ID", AutoSize = true }, 0, 0);
+        table.Controls.Add(new Label { Text = "ID узла", AutoSize = true }, 0, 0);
         table.Controls.Add(_txtNodeId, 1, 0);
-        table.Controls.Add(new Label { Text = "Name", AutoSize = true }, 0, 1);
+        table.Controls.Add(new Label { Text = "Имя", AutoSize = true }, 0, 1);
         table.Controls.Add(_txtName, 1, 1);
-        table.Controls.Add(new Label { Text = "Base URL", AutoSize = true }, 0, 2);
+        table.Controls.Add(new Label { Text = "Адрес (URL)", AutoSize = true }, 0, 2);
         table.Controls.Add(_txtBaseUrl, 1, 2);
-        table.Controls.Add(new Label { Text = "Secret override", AutoSize = true }, 0, 3);
+        table.Controls.Add(new Label { Text = "Свой секрет", AutoSize = true }, 0, 3);
         table.Controls.Add(_txtSecret, 1, 3);
 
         var panelButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
-        var btnOk = new Button { Text = "OK", Width = 90 };
-        var btnCancel = new Button { Text = "Cancel", Width = 90 };
+        var btnOk = new Button { Text = "ОК", Width = 90 };
+        var btnCancel = new Button { Text = "Отмена", Width = 90 };
         btnOk.Click += (_, _) => SaveAndClose();
         btnCancel.Click += (_, _) => DialogResult = DialogResult.Cancel;
 
@@ -60,7 +60,7 @@ public sealed class AddNodeForm : Form
             string.IsNullOrWhiteSpace(_txtName.Text) ||
             string.IsNullOrWhiteSpace(_txtBaseUrl.Text))
         {
-            MessageBox.Show("Fill Node ID, Name and Base URL.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Заполните ID узла, Имя и Адрес.", "Проверка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 

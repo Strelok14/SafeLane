@@ -9,5 +9,5 @@ public sealed class NodeViewModel
     public bool IsOnline { get; set; }
     public DateTime LastSeenUtc { get; set; }
 
-    public string Status => IsOnline ? "Online" : "Offline";
+    public string Status => IsOnline ? "В сети" : "Не в сети";
 }

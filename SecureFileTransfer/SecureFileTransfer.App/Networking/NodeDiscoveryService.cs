@@ -77,9 +77,24 @@ public sealed class NodeDiscoveryService : IDisposable
             try
             {
                 var result = await _receiver!.ReceiveAsync(_cts.Token);
+
+                // Discard oversized packets before any deserialization (simple DoS guard).
+                const int maxAnnouncementBytes = 1024;
+                if (result.Buffer.Length > maxAnnouncementBytes)
+                {
+                    continue;
+                }
+
                 var json = Encoding.UTF8.GetString(result.Buffer);
                 var ann = JsonSerializer.Deserialize<NodeAnnouncement>(json);
                 if (ann is null || ann.NodeId == _nodeId)
+                {
+                    continue;
+                }
+
+                // Discard stale announcements (older than 15 seconds) to prevent replay of discovery packets.
+                var ageMs = Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ann.TimestampUnixMs);
+                if (ageMs > 15_000)
                 {
                     continue;
                 }

@@ -7,11 +7,18 @@ namespace SecureFileTransfer.App.Networking;
 
 public sealed class FileSenderService
 {
+    // Single shared instance — HttpClient is thread-safe and reuse avoids socket exhaustion.
+    // Explicit 60-second timeout prevents hangs on unresponsive receivers.
+    private static readonly HttpClient SharedHttpClient = new() { Timeout = TimeSpan.FromSeconds(60) };
+
     private readonly AppSettings _settings;
     private readonly SequenceGenerator _sequence;
     private readonly IKeyDerivationService _keyDerivation = new KeyDerivationService();
     private readonly IHmacSignatureService _hmac = new HmacSignatureService();
-    private readonly HttpClient _httpClient = new();
+    private readonly IChunkEncryptionService _encryption = new ChunkEncryptionService();
+    // Cache derived key so PBKDF2 (150k iterations) runs once per send operation, not per chunk.
+    private byte[]? _cachedKey;
+    private string? _cachedSecret;
     private readonly Action<string> _log;
 
     public FileSenderService(AppSettings settings, SequenceGenerator sequence, Action<string> log)
@@ -30,11 +37,12 @@ public sealed class FileSenderService
         }
 
         var chunkSize = Math.Max(16 * 1024, _settings.ChunkSizeKb * 1024);
-        var totalChunks = (int)Math.Ceiling((double)fileInfo.Length / chunkSize);
+        // Empty file: treat as single chunk with zero bytes so receiver gets a complete file event.
+        var totalChunks = fileInfo.Length == 0 ? 1 : (int)Math.Ceiling((double)fileInfo.Length / chunkSize);
         var sessionId = Guid.NewGuid().ToString("N");
 
         var secret = string.IsNullOrWhiteSpace(target.SharedSecretOverride) ? _settings.SharedSecret : target.SharedSecretOverride;
-        var key = _keyDerivation.DeriveKeyBytes(secret!);
+        var key = GetOrDeriveKey(secret!);
 
         await PerformHandshakeAsync(target, key, cancellationToken);
 
@@ -51,7 +59,8 @@ public sealed class FileSenderService
                 break;
             }
 
-            var chunkData = Convert.ToBase64String(buffer, 0, read);
+            // Encrypt the chunk with AES-256-GCM before transmission.
+            var chunkData = _encryption.Encrypt(buffer.AsSpan(0, read), key);
             var request = new UploadChunkRequest
             {
                 SenderId = _settings.NodeId,
@@ -85,7 +94,7 @@ public sealed class FileSenderService
             while (true)
             {
                 attempts++;
-                var response = await _httpClient.PostAsJsonAsync($"{target.BaseUrl.TrimEnd('/')}/api/upload", request, cancellationToken);
+                var response = await SharedHttpClient.PostAsJsonAsync($"{target.BaseUrl.TrimEnd('/')}/api/upload", request, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
                     break;
@@ -105,6 +114,17 @@ public sealed class FileSenderService
         }
 
         _log($"File sent to {target.DisplayName}: {fileInfo.Name} ({fileInfo.Length} bytes)");
+    }
+
+    private byte[] GetOrDeriveKey(string secret)
+    {
+        if (_cachedKey is not null && _cachedSecret == secret)
+        {
+            return _cachedKey;
+        }
+        _cachedKey = _keyDerivation.DeriveKeyBytes(secret);
+        _cachedSecret = secret;
+        return _cachedKey;
     }
 
     private async Task PerformHandshakeAsync(TrustedNodeConfig target, byte[] key, CancellationToken cancellationToken)
@@ -128,7 +148,7 @@ public sealed class FileSenderService
             SignatureBase64 = _hmac.ComputeBase64(canonical, key)
         };
 
-        var response = await _httpClient.PostAsJsonAsync($"{target.BaseUrl.TrimEnd('/')}/api/handshake", request, cancellationToken);
+        var response = await SharedHttpClient.PostAsJsonAsync($"{target.BaseUrl.TrimEnd('/')}/api/handshake", request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 }
