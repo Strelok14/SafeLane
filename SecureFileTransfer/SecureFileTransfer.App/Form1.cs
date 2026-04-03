@@ -35,6 +35,9 @@ public partial class Form1 : Form
     {
         try
         {
+            // Применяем тёмную тему
+            ThemeManager.ApplyDarkTheme(this);
+
             _settingsStore = new SettingsStore(_appDataPath);
             _trustedNodeStore = new TrustedNodeStore(_appDataPath);
 
@@ -59,12 +62,12 @@ public partial class Form1 : Form
             _discovery.Start();
 
             _heartbeatTimer.Start();
-            lblStatus.Text = $"Status: ready. NodeId={_settings.NodeId}";
-            Log("Secure transfer app started.");
+            lblStatus.Text = $"Статус: готово. Узел={_settings.NodeId}";
+            Log("Приложение SafeLane запущено.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Startup failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, "Ошибка запуска", MessageBoxButtons.OK, MessageBoxIcon.Error);
             Close();
         }
     }
@@ -137,7 +140,7 @@ public partial class Form1 : Form
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "Choose file to send",
+            Title = "Выберите файл для отправки",
             CheckFileExists = true,
             Multiselect = false
         };
@@ -160,27 +163,27 @@ public partial class Form1 : Form
 
         if (string.IsNullOrWhiteSpace(_selectedFilePath) || !File.Exists(_selectedFilePath))
         {
-            MessageBox.Show(this, "Select a valid file first.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Выберите корректный файл перед отправкой.", "Проверка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         var selected = gridNodes.CurrentRow?.DataBoundItem as NodeViewModel;
         if (selected is null)
         {
-            MessageBox.Show(this, "Select target node.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Выберите целевой узел.", "Проверка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         var trusted = _trustedNodes.FirstOrDefault(n => n.NodeId == selected.NodeId);
         if (trusted is null)
         {
-            MessageBox.Show(this, "Target node is not in trusted list. Add it first.", "Security", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Целевой узел не в списке доверенных. Добавьте его сначала.", "Безопасность", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         btnSend.Enabled = false;
         progressSend.Value = 0;
-        lblStatus.Text = "Status: sending...";
+        lblStatus.Text = "Статус: отправка...";
 
         try
         {
@@ -197,13 +200,13 @@ public partial class Form1 : Form
                 }
             });
 
-            lblStatus.Text = "Status: send completed";
+            lblStatus.Text = "Статус: отправка завершена";
         }
         catch (Exception ex)
         {
-            lblStatus.Text = "Status: send failed";
-            Log($"Send failed: {ex.Message}");
-            MessageBox.Show(this, ex.Message, "Send error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            lblStatus.Text = "Статус: ошибка отправки";
+            Log($"Ошибка отправки: {ex.Message}");
+            MessageBox.Show(this, ex.Message, "Ошибка отправки", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -215,7 +218,7 @@ public partial class Form1 : Form
     {
         var percent = total == 0 ? 0 : (int)((double)done / total * 100);
         progressSend.Value = Math.Max(0, Math.Min(100, percent));
-        lblStatus.Text = $"Status: sending {done}/{total}";
+        lblStatus.Text = $"Статус: отправка {done}/{total}";
     }
 
     private void UpdateReceiveProgress(int done, int total)
@@ -228,7 +231,7 @@ public partial class Form1 : Form
 
         var percent = total == 0 ? 0 : (int)((double)done / total * 100);
         progressReceive.Value = Math.Max(0, Math.Min(100, percent));
-        lblStatus.Text = $"Status: receiving {done}/{total}";
+        lblStatus.Text = $"Статус: получение {done}/{total}";
     }
 
     private void btnAddNode_Click(object sender, EventArgs e)
@@ -248,7 +251,7 @@ public partial class Form1 : Form
         _trustedNodes.Add(dialog.Result);
         _trustedNodeStore.Save(_trustedNodes);
         PopulateTrustedNodesToGrid();
-        Log($"Trusted node added: {dialog.Result.DisplayName} ({dialog.Result.NodeId})");
+        Log($"Доверенный узел добавлен: {dialog.Result.DisplayName} ({dialog.Result.NodeId})");
     }
 
     private void btnRemoveNode_Click(object sender, EventArgs e)
@@ -267,7 +270,7 @@ public partial class Form1 : Form
         _trustedNodes.RemoveAll(n => n.NodeId == selected.NodeId);
         _trustedNodeStore.Save(_trustedNodes);
         PopulateTrustedNodesToGrid();
-        Log($"Trusted node removed: {selected.NodeId}");
+        Log($"Доверенный узел удален: {selected.NodeId}");
     }
 
     private void btnSettings_Click(object sender, EventArgs e)
@@ -285,7 +288,7 @@ public partial class Form1 : Form
 
         _settings = dialog.Result;
         _settingsStore.Save(_settings);
-        Log("Settings saved. Restart app to apply listen port/discovery changes.");
+        Log("Настройки сохранены. Перезагрузите приложение для применения изменений порта прослушивания.");
     }
 
     private void Log(string message)

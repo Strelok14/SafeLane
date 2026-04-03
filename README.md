@@ -1,8 +1,8 @@
 # SafeLane
 
-**Standalone .NET 8 application for secure file transfer over local network (LAN) between trusted nodes.**
+**Самостоятельное приложение .NET 8 для безопасной передачи файлов по локальной сети (LAN) между доверенными узлами.**
 
-Secure point-to-point file transfer for tactical networks without internet connectivity. Built with Windows Forms UI, embedded HTTP server, and military-grade HMAC-SHA256 packet authentication.
+Безопасная точечная передача файлов для тактических сетей без подключения в интернет. Создано с пользовательским интерфейсом Windows Forms, встроенным HTTP-сервером и военно-класса аутентификацией пакетов HMAC-SHA256.
 
 ## Key Features
 

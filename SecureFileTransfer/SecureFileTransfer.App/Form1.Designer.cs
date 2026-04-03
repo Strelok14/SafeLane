@@ -1,4 +1,4 @@
-﻿namespace SecureFileTransfer.App;
+namespace SecureFileTransfer.App;
 
 partial class Form1
 {
@@ -91,7 +91,7 @@ partial class Form1
         this.btnAddNode.Name = "btnAddNode";
         this.btnAddNode.Size = new System.Drawing.Size(122, 30);
         this.btnAddNode.TabIndex = 0;
-        this.btnAddNode.Text = "Add trusted node";
+        this.btnAddNode.Text = "�������� ����";
         this.btnAddNode.UseVisualStyleBackColor = true;
         this.btnAddNode.Click += new System.EventHandler(this.btnAddNode_Click);
         // 
@@ -101,7 +101,7 @@ partial class Form1
         this.btnRemoveNode.Name = "btnRemoveNode";
         this.btnRemoveNode.Size = new System.Drawing.Size(122, 30);
         this.btnRemoveNode.TabIndex = 1;
-        this.btnRemoveNode.Text = "Remove node";
+        this.btnRemoveNode.Text = "������� ����";
         this.btnRemoveNode.UseVisualStyleBackColor = true;
         this.btnRemoveNode.Click += new System.EventHandler(this.btnRemoveNode_Click);
         // 
@@ -111,7 +111,7 @@ partial class Form1
         this.btnSettings.Name = "btnSettings";
         this.btnSettings.Size = new System.Drawing.Size(122, 30);
         this.btnSettings.TabIndex = 2;
-        this.btnSettings.Text = "Settings";
+        this.btnSettings.Text = "���������";
         this.btnSettings.UseVisualStyleBackColor = true;
         this.btnSettings.Click += new System.EventHandler(this.btnSettings_Click);
         // 
@@ -155,7 +155,7 @@ partial class Form1
         this.txtSelectedFile.Location = new System.Drawing.Point(3, 10);
         this.txtSelectedFile.Margin = new System.Windows.Forms.Padding(3, 10, 3, 3);
         this.txtSelectedFile.Name = "txtSelectedFile";
-        this.txtSelectedFile.PlaceholderText = "Select file to send";
+        this.txtSelectedFile.PlaceholderText = "�������� ���� ��� ��������";
         this.txtSelectedFile.ReadOnly = true;
         this.txtSelectedFile.Size = new System.Drawing.Size(808, 23);
         this.txtSelectedFile.TabIndex = 0;
@@ -167,7 +167,7 @@ partial class Form1
         this.btnChooseFile.Name = "btnChooseFile";
         this.btnChooseFile.Size = new System.Drawing.Size(134, 40);
         this.btnChooseFile.TabIndex = 1;
-        this.btnChooseFile.Text = "Choose file";
+        this.btnChooseFile.Text = "Выбрать файл";
         this.btnChooseFile.UseVisualStyleBackColor = true;
         this.btnChooseFile.Click += new System.EventHandler(this.btnChooseFile_Click);
         // 
@@ -178,7 +178,7 @@ partial class Form1
         this.btnSend.Name = "btnSend";
         this.btnSend.Size = new System.Drawing.Size(134, 40);
         this.btnSend.TabIndex = 2;
-        this.btnSend.Text = "Send";
+        this.btnSend.Text = "Отправить";
         this.btnSend.UseVisualStyleBackColor = true;
         this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
         // 
@@ -206,7 +206,7 @@ partial class Form1
         this.lblStatus.Name = "lblStatus";
         this.lblStatus.Size = new System.Drawing.Size(1094, 24);
         this.lblStatus.TabIndex = 5;
-        this.lblStatus.Text = "Status: idle";
+        this.lblStatus.Text = "Статус: ожидание";
         this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
         // 
         // listLogs
@@ -228,7 +228,7 @@ partial class Form1
         this.Controls.Add(this.tableRoot);
         this.Name = "Form1";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "Secure File Transfer";
+        this.Text = "SafeLane - Безопасная передача файлов";
         this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
         this.Load += new System.EventHandler(this.Form1_Load);
         this.tableRoot.ResumeLayout(false);
@@ -257,3 +257,4 @@ partial class Form1
     private System.Windows.Forms.Label lblStatus;
     private System.Windows.Forms.ListBox listLogs;
 }
+
